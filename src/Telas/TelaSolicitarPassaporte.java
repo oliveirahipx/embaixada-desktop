@@ -1,5 +1,7 @@
 package Telas;
 
+import Database.Conexao;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -44,7 +46,7 @@ public class TelaSolicitarPassaporte extends JFrame {
         gbc.gridy = 1;
         painel.add(numeroPassaporteField, gbc);
 
-        JLabel dataEmissaoLabel = new JLabel("Data de Emissão:");
+        JLabel dataEmissaoLabel = new JLabel("Data de Emissão (DD/MM/AAAA):");
         dataEmissaoLabel.setFont(new Font("Arial", Font.PLAIN, 14));
         gbc.gridx = 0;
         gbc.gridy = 2;
@@ -104,14 +106,21 @@ public class TelaSolicitarPassaporte extends JFrame {
                     return;
                 }
 
-                try (Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/embaixadaBrasil", "root", "senha")) {
+                if (!dataEmissao.matches("\\d{2}/\\d{2}/\\d{4}")) {
+                    JOptionPane.showMessageDialog(null, "Data inválida! Use o formato DD/MM/AAAA.");
+                    return;
+                }
+                // DD/MM/AAAA -> AAAA-MM-DD (formato do tipo DATE do MySQL)
+                String dataFormatada = dataEmissao.substring(6, 10) + "-" + dataEmissao.substring(3, 5) + "-" + dataEmissao.substring(0, 2);
+
+                try (Connection connection = Conexao.getConnection()) {
                     String insertPassaporteSQL = "INSERT INTO passaporte (numeroPassaporte, dataEmissao, autoridadeEmissora, idusuario) " +
-                            "VALUES (?, ?, ?, (SELECT idusuario FROM usuario WHERE nomeusuario = ?))";
+                            "VALUES (?, ?, ?, ?)";
                     PreparedStatement passaporteStatement = connection.prepareStatement(insertPassaporteSQL);
                     passaporteStatement.setString(1, numeroPassaporte);
-                    passaporteStatement.setString(2, dataEmissao);
+                    passaporteStatement.setString(2, dataFormatada);
                     passaporteStatement.setString(3, autoridadeEmissora);
-                    passaporteStatement.setString(4, "NomeUsuario"); // Substituir pelo nome do usuário logado
+                    passaporteStatement.setInt(4, SessaoUsuario.getIdUsuarioLogado());
                     passaporteStatement.executeUpdate();
 
                     JOptionPane.showMessageDialog(null, "Solicitação de passaporte enviada com sucesso!");
